@@ -1,28 +1,39 @@
-import 'package:branchq/features/queue/models.dart';
-import 'package:branchq/features/queue/queue_repository.dart';
+import 'package:branchq/features/queue/token_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class ServiceListScreen extends StatelessWidget {
   const ServiceListScreen({
     super.key,
-    required this.repository,
     required this.branchId,
+    required this.branchName,
   });
 
-  final QueueRepository repository;
   final String branchId;
+  final String branchName;
+
+  static const _servicesByBranch = {
+    'central': [
+      _SampleService(name: 'Cash', detail: 'About 5 minutes'),
+      _SampleService(name: 'Account opening', detail: 'About 15 minutes'),
+      _SampleService(name: 'Consultation', detail: 'About 10 minutes'),
+    ],
+    'north': [
+      _SampleService(name: 'Cash', detail: 'About 5 minutes'),
+      _SampleService(name: 'Loan inquiry', detail: 'About 12 minutes'),
+    ],
+    'riverside': [
+      _SampleService(name: 'Consultation', detail: 'About 10 minutes'),
+      _SampleService(name: 'Document pickup', detail: 'About 8 minutes'),
+    ],
+  };
 
   @override
   Widget build(BuildContext context) {
-    final branch = repository
-        .listBranches()
-        .where((item) => item.id == branchId)
-        .firstOrNull;
-    final services = repository.listServices(branchId);
+    final services = _servicesByBranch[branchId] ?? const <_SampleService>[];
 
     return Scaffold(
-      appBar: AppBar(title: Text(branch?.name ?? branchId)),
+      appBar: AppBar(title: Text(branchName)),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: services.length,
@@ -30,14 +41,15 @@ class ServiceListScreen extends StatelessWidget {
         itemBuilder: (context, index) {
           final service = services[index];
           return ServiceCard(
-            service: service,
-            onTap: () {
-              final token = repository.joinQueue(
-                branchId: branchId,
-                serviceId: service.id,
-              );
-              context.push('/tokens/${token.id}');
-            },
+            name: service.name,
+            detail: service.detail,
+            onTap: () => context.push(
+              '/tokens/A012',
+              extra: TokenRouteArgs(
+                branchName: branchName,
+                serviceName: service.name,
+              ),
+            ),
           );
         },
       ),
@@ -46,9 +58,15 @@ class ServiceListScreen extends StatelessWidget {
 }
 
 class ServiceCard extends StatelessWidget {
-  const ServiceCard({super.key, required this.service, required this.onTap});
+  const ServiceCard({
+    super.key,
+    required this.name,
+    required this.detail,
+    required this.onTap,
+  });
 
-  final Service service;
+  final String name;
+  final String detail;
   final VoidCallback onTap;
 
   @override
@@ -62,11 +80,18 @@ class ServiceCard extends StatelessWidget {
           Icons.room_service_outlined,
           color: theme.colorScheme.primary,
         ),
-        title: Text(service.name, style: theme.textTheme.titleMedium),
-        subtitle: Text('About ${service.averageServiceMinutes} minutes'),
+        title: Text(name, style: theme.textTheme.titleMedium),
+        subtitle: Text(detail),
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
       ),
     );
   }
+}
+
+class _SampleService {
+  const _SampleService({required this.name, required this.detail});
+
+  final String name;
+  final String detail;
 }

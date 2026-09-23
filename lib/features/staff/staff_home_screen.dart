@@ -1,36 +1,26 @@
-import 'package:branchq/features/queue/models.dart';
-import 'package:branchq/features/queue/queue_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class StaffHomeScreen extends StatelessWidget {
-  const StaffHomeScreen({
-    super.key,
-    required this.repository,
-    required this.branchId,
-  });
+  const StaffHomeScreen({super.key, required this.branchName});
 
-  final QueueRepository repository;
-  final String branchId;
+  final String branchName;
+
+  static const _counters = [
+    _SampleCounter(name: 'Counter 1', service: 'Cash'),
+    _SampleCounter(name: 'Counter 2', service: 'Account opening'),
+  ];
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final branch = repository
-        .listBranches()
-        .where((item) => item.id == branchId)
-        .firstOrNull;
-    final services = repository.listServices(branchId);
-    final counters = repository
-        .listCounters(branchId)
-        .where((counter) => counter.isOpen);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Staff')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(branch?.name ?? branchId, style: theme.textTheme.headlineSmall),
+          Text(branchName, style: theme.textTheme.headlineSmall),
           const SizedBox(height: 4),
           Text(
             'Open counters',
@@ -39,16 +29,11 @@ class StaffHomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          for (final counter in counters) ...[
+          for (final counter in _counters) ...[
             CounterCard(
-              counter: counter,
-              serviceName:
-                  services
-                      .where((service) => service.id == counter.activeServiceId)
-                      .firstOrNull
-                      ?.name ??
-                  counter.activeServiceId,
-              onTap: () => context.push('/staff/counter', extra: counter.id),
+              name: counter.name,
+              service: counter.service,
+              onTap: () => context.push('/staff/counter', extra: counter.name),
             ),
             const SizedBox(height: 12),
           ],
@@ -61,13 +46,13 @@ class StaffHomeScreen extends StatelessWidget {
 class CounterCard extends StatelessWidget {
   const CounterCard({
     super.key,
-    required this.counter,
-    required this.serviceName,
+    required this.name,
+    required this.service,
     required this.onTap,
   });
 
-  final Counter counter;
-  final String serviceName;
+  final String name;
+  final String service;
   final VoidCallback onTap;
 
   @override
@@ -78,11 +63,18 @@ class CounterCard extends StatelessWidget {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Icon(Icons.desk_outlined, color: theme.colorScheme.primary),
-        title: Text(counter.name, style: theme.textTheme.titleMedium),
-        subtitle: Text(serviceName),
+        title: Text(name, style: theme.textTheme.titleMedium),
+        subtitle: Text(service),
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
       ),
     );
   }
+}
+
+class _SampleCounter {
+  const _SampleCounter({required this.name, required this.service});
+
+  final String name;
+  final String service;
 }

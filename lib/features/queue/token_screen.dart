@@ -1,52 +1,24 @@
-import 'package:branchq/features/queue/queue_repository.dart';
-import 'package:branchq/features/queue/queue_rules.dart';
 import 'package:flutter/material.dart';
 
 class TokenScreen extends StatelessWidget {
   const TokenScreen({
     super.key,
-    required this.repository,
     required this.tokenId,
+    this.branchName,
+    this.serviceName,
   });
 
-  final QueueRepository repository;
   final String tokenId;
+  final String? branchName;
+  final String? serviceName;
 
   @override
   Widget build(BuildContext context) {
-    final token = repository.watchToken(tokenId);
-    if (token == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Your token')),
-        body: const Center(child: Text('Token not found')),
-      );
-    }
-
-    final branch = repository
-        .listBranches()
-        .where((item) => item.id == token.branchId)
-        .firstOrNull;
-    final service = repository
-        .listServices(token.branchId)
-        .where((item) => item.id == token.serviceId)
-        .firstOrNull;
-    final ahead = QueueRules.peopleAhead(
-      token,
-      repository.listTokens(
-        branchId: token.branchId,
-        serviceId: token.serviceId,
-      ),
-    );
-    final minutes = QueueRules.estimatedWaitMinutes(
-      peopleAhead: ahead,
-      averageServiceMinutes: service?.averageServiceMinutes ?? 0,
-    );
-    final place = [
-      if (branch != null) branch.name,
-      if (service != null) service.name,
-    ].join(' · ');
-
     final theme = Theme.of(context);
+    final place = [
+      if (branchName != null) branchName,
+      if (serviceName != null) serviceName,
+    ].join(' · ');
 
     return Scaffold(
       appBar: AppBar(title: const Text('Your token')),
@@ -70,10 +42,7 @@ class TokenScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      token.displayNumber,
-                      style: theme.textTheme.headlineLarge,
-                    ),
+                    Text(tokenId, style: theme.textTheme.headlineLarge),
                     if (place.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(place, textAlign: TextAlign.center),
@@ -83,14 +52,14 @@ class TokenScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            QueueFact(
+            const QueueFact(
               icon: Icons.people_outline,
-              label: ahead == 1 ? '1 person ahead' : '$ahead people ahead',
+              label: '4 people ahead',
             ),
             const SizedBox(height: 12),
-            QueueFact(
+            const QueueFact(
               icon: Icons.schedule_outlined,
-              label: minutes == 1 ? 'About 1 minute' : 'About $minutes minutes',
+              label: 'About 16 minutes',
             ),
           ],
         ),
@@ -116,4 +85,15 @@ class QueueFact extends StatelessWidget {
       ),
     );
   }
+}
+
+class TokenRouteArgs {
+  const TokenRouteArgs({required this.branchName, required this.serviceName});
+
+  final String branchName;
+  final String serviceName;
+}
+
+TokenRouteArgs? tokenRouteArgsOf(Object? extra) {
+  return extra is TokenRouteArgs ? extra : null;
 }
