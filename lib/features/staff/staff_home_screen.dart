@@ -1,10 +1,16 @@
+import 'package:branchq/features/auth/application/auth_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class StaffHomeScreen extends StatelessWidget {
-  const StaffHomeScreen({super.key, required this.branchName});
+  const StaffHomeScreen({
+    super.key,
+    required this.branchName,
+    required this.authController,
+  });
 
   final String branchName;
+  final AuthController authController;
 
   static const _counters = [
     _SampleCounter(name: 'Counter 1', service: 'Cash'),
@@ -16,7 +22,18 @@ class StaffHomeScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Staff')),
+      appBar: AppBar(
+        title: const Text('Staff'),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await authController.signOut();
+              if (context.mounted) context.go('/role');
+            },
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

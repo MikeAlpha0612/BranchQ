@@ -46,6 +46,7 @@ A screen never talks to storage or the network directly. It asks application sta
 | Models | Plain Dart classes | No code generation until the models settle. |
 | Local data | `shared_preferences`, then `sqflite` if the queue history grows | Start with a simple store. Move to a database only when lists need queries. |
 | Remote data | REST API behind the same repository interface | Screens stay the same when the fake repository is replaced. |
+| Auth | Session token in local storage, `go_router` redirects | The same guard covers a local sign-in now and the API later. |
 | Tests | `flutter_test` | One test per phase once behavior exists. |
 
 Add a package only in the phase that needs it.
@@ -68,6 +69,8 @@ Organization
 | `Counter` | id, branchId, name, active service, open/closed |
 | `Token` | id, display number, branchId, serviceId, status, createdAt |
 | `StaffSession` | staff name, branchId, counterId |
+| `User` | id, name, email, role (`customer` or `staff`) |
+| `Session` | userId, role, branchId, token, expiresAt |
 
 Queue rules live in one place, `QueueRules`, not inside widgets:
 
@@ -77,11 +80,19 @@ Queue rules live in one place, `QueueRules`, not inside widgets:
 - A counter serves one token at a time.
 - Estimated wait is `people ahead × average service minutes`.
 
+Who someone is, and what they may do, live in `AccessPolicy`:
+
+- A guest may join a queue and read the token id stored on this device.
+- A signed-in customer may read only their own tokens.
+- A staff member may call, serve, and skip only at their own branch.
+- `/staff` and `/staff/counter` open only for a staff session that has not expired.
+
 ## Navigation
 
 ```text
 /                         Splash
 /role                     Customer or Staff
+/sign-in                  Email and password
 /branches                 Branch list
 /branches/:id/services    Service list
 /tokens/:id               Customer token and position
@@ -89,8 +100,8 @@ Queue rules live in one place, `QueueRules`, not inside widgets:
 /staff/counter            Call next, serve, skip
 ```
 
-Customer path: Role → Branch → Service → Token.
-Staff path: Role → Staff home → Counter.
+Customer path: Role → Branch → Service → Token. A returning customer may sign in first.
+Staff path: Role → Sign in → Staff home → Counter.
 
 ## Folder layout at the end of Phase 6
 
@@ -231,7 +242,26 @@ Use `sqflite` when you need “today’s tokens” or history queries. Preferenc
 
 **Exit:** a cold start as a customer never opens the counter screen. A staff session still exists after restart until they sign out.
 
-## Phase 8 — Remote queue
+## Phase 8 — Authentication and authorization
+
+**Goal:** sign-in proves who the person is. `AccessPolicy` decides which screens and queue actions that role may use.
+
+**Learn:** a sign-in form, a session token, role checks, replacing the Phase 7 branch-code shortcut.
+
+**Build:**
+
+- `features/auth/` uses the same four layers as Phase 6.
+- `AuthRepository` interface: `signIn`, `signOut`, `currentSession`.
+- `InMemoryAuthRepository` seeded with one customer and one staff user at Central Branch. Passwords stay inside that repository. The device stores only the session token.
+- `Session` replaces `StaffSession`. It records the user, the role, the staff branch, the token, and when it expires.
+- Sign-in screen at `/sign-in` asks for email and password. A failed sign-in stays on that screen.
+- Customer on the role screen can continue as a guest or open sign-in. Staff on the role screen opens sign-in before `/staff`.
+- `AccessPolicy` allows or refuses `joinQueue`, `watchToken`, `callNext`, `markServed`, and `skip` before the queue repository runs.
+- Sign out clears the session. The next visit to `/staff` returns to `/sign-in`.
+
+**Exit:** a wrong password never opens the counter. A signed-in staff member at Central Branch can call the next token there. A customer session cannot open `/staff/counter`. After restart, a session that has not expired is still signed in.
+
+## Phase 9 — Remote queue
 
 **Goal:** two phones share one queue: a customer’s phone and a counter tablet.
 
@@ -239,16 +269,19 @@ Use `sqflite` when you need “today’s tokens” or history queries. Preferenc
 
 **Build:**
 
-- `RemoteQueueRepository implements QueueRepository` against an HTTP API.
+- `RemoteQueueRepository implements QueueRepository` and `RemoteAuthRepository implements AuthRepository` against an HTTP API.
 - The controller depends on `QueueRepository`, so screens stay as they are.
 - Surface loading and error on join, call next, and token refresh.
 - Poll the token every few seconds, or subscribe if the API supports it.
 - The API owns token numbers. The device does not invent `A012` anymore.
+- Staff requests send `Authorization: Bearer <token>`. A missing or expired token, or a customer token on a staff action, returns an authorization failure and the app shows it.
 
 Suggested endpoints:
 
 | Action | Request |
 | --- | --- |
+| Sign in | `POST /sign-in` with email and password |
+| Sign out | `POST /sign-out` |
 | List branches | `GET /branches` |
 | List services | `GET /branches/{id}/services` |
 | Join | `POST /queues` with branchId and serviceId |
@@ -258,7 +291,7 @@ Suggested endpoints:
 
 **Exit:** phone A joins and sees position. Phone B, signed in as staff for that branch, calls next. Phone A updates to called without a restart.
 
-## Phase 9 — Release polish
+## Phase 10 — Release polish
 
 **Goal:** a build you can hand to someone else.
 
@@ -281,17 +314,18 @@ Suggested endpoints:
 ```text
 1 Shell → 2 Static UI → 3 Models and memory → 4 Shared state
         → 5 Local save → 6 Layers and tests → 7 Roles
-        → 8 Shared remote queue → 9 Release polish
+        → 8 Sign-in and access rules → 9 Shared remote queue
+        → 10 Release polish
 ```
 
-Phases 1–5 produce a demo that works on one device. Phases 6–7 make the code safe to grow. Phases 8–9 make it a multi-device product.
+Phases 1–5 produce a demo that works on one device. Phases 6–8 separate the code and decide who may use each action. Phases 9–10 make it a multi-device product.
 
-## Out of the first nine phases
+## Out of the first ten phases
 
-Leave these until the remote queue works:
+Leave these until sign-in and the remote queue work:
 
 - Branch manager dashboard and reports
-- Accounts with password or OTP for customers
+- Password reset and one-time passcodes
 - Push notifications when a token is called
 - Multiple languages
 - Payments

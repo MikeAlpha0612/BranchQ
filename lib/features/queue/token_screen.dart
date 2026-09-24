@@ -1,19 +1,34 @@
+import 'package:branchq/features/auth/application/auth_controller.dart';
+import 'package:branchq/features/auth/domain/access_policy.dart';
 import 'package:flutter/material.dart';
 
 class TokenScreen extends StatelessWidget {
   const TokenScreen({
     super.key,
     required this.tokenId,
+    required this.authController,
     this.branchName,
     this.serviceName,
   });
 
   final String tokenId;
+  final AuthController authController;
   final String? branchName;
   final String? serviceName;
 
   @override
   Widget build(BuildContext context) {
+    final allowed = AccessPolicy.canWatchToken(
+      authController.session,
+      now: DateTime.now(),
+    );
+    if (!allowed) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Your token')),
+        body: const Center(child: Text('You can only view your own token.')),
+      );
+    }
+
     final theme = Theme.of(context);
     final place = [
       if (branchName != null) branchName,
