@@ -1,3 +1,5 @@
+import 'package:branchq/features/auth/application/auth_controller.dart';
+import 'package:branchq/features/auth/domain/access_policy.dart';
 import 'package:branchq/features/queue/token_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -7,10 +9,12 @@ class ServiceListScreen extends StatelessWidget {
     super.key,
     required this.branchId,
     required this.branchName,
+    required this.authController,
   });
 
   final String branchId;
   final String branchName;
+  final AuthController authController;
 
   static const _servicesByBranch = {
     'central': [
@@ -43,13 +47,27 @@ class ServiceListScreen extends StatelessWidget {
           return ServiceCard(
             name: service.name,
             detail: service.detail,
-            onTap: () => context.push(
-              '/tokens/A012',
-              extra: TokenRouteArgs(
-                branchName: branchName,
-                serviceName: service.name,
-              ),
-            ),
+            onTap: () {
+              final allowed = AccessPolicy.canJoinQueue(
+                authController.session,
+                now: DateTime.now(),
+              );
+              if (!allowed) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Staff accounts use the counter.'),
+                  ),
+                );
+                return;
+              }
+              context.push(
+                '/tokens/A012',
+                extra: TokenRouteArgs(
+                  branchName: branchName,
+                  serviceName: service.name,
+                ),
+              );
+            },
           );
         },
       ),
